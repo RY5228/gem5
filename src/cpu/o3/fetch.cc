@@ -55,12 +55,15 @@
 #include "cpu/nop_static_inst.hh"
 #include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
+#include "cpu/o3/lfence_inst.hh"
 #include "cpu/o3/limits.hh"
+#include "cpu/o3/lsq_fence_inst.hh"
 #include "debug/Activity.hh"
 #include "debug/Drain.hh"
 #include "debug/Fetch.hh"
 #include "debug/O3CPU.hh"
 #include "debug/O3PipeView.hh"
+#include "debug/Spectre.hh"
 #include "mem/packet.hh"
 #include "params/BaseO3CPU.hh"
 #include "sim/byteswap.hh"
@@ -130,7 +133,15 @@ Fetch::Fetch(CPU *_cpu, const BaseO3CPUParams &params)
         fetchBufferValid[i] = false;
         lastIcacheStall[i] = 0;
         issuePipelinedIfetch[i] = false;
+        branchThreat[i] = false;
     }
+
+    if (params.simulateScheme.compare("LFence") == 0)
+        scheme = Scheme::LFENCE;
+    else if (params.simulateScheme.compare("LSQFence") == 0)
+        scheme = Scheme::LSQFENCE;
+    else
+        scheme = Scheme::DEFAULT;
 
     branchPred = params.branchPred;
 
@@ -207,7 +218,9 @@ Fetch::FetchStatGroup::FetchStatGroup(CPU *cpu, Fetch *fetch)
     ADD_STAT(rate, statistics::units::Rate<
                     statistics::units::Count, statistics::units::Cycle>::get(),
              "Number of inst fetches per cycle",
-             insts / cpu->baseStats.numCycles)
+             insts / cpu->baseStats.numCycles),
+    ADD_STAT(fenceNum, statistics::units::Count::get(),
+             "Number of fence added by fetch.")
 {
         icacheStallCycles
             .prereq(icacheStallCycles);
@@ -256,6 +269,8 @@ Fetch::FetchStatGroup::FetchStatGroup(CPU *cpu, Fetch *fetch)
             .flags(statistics::total);
         rate
             .flags(statistics::total);
+        fenceNum
+            .prereq(fenceNum);
 }
 void
 Fetch::setTimeBuffer(TimeBuffer<TimeStruct> *time_buffer)
@@ -307,6 +322,7 @@ Fetch::clearStates(ThreadID tid)
     fetchBufferPC[tid] = 0;
     fetchBufferValid[tid] = false;
     fetchQueue[tid].clear();
+    branchThreat[tid] = false;
 
     // TODO not sure what to do with priorityList for now
     // priorityList.push_back(tid);
@@ -713,6 +729,11 @@ Fetch::doSquash(const PCStateBase &new_pc, const DynInstPtr squashInst,
             tid, new_pc);
 
     set(pc[tid], new_pc);
+    if (scheme != Scheme::DEFAULT && pc[tid]->microPC() == (MicroPC)(-1)) {
+        pc[tid]->uReset();
+        DPRINTF(Spectre, "[tid:%i] Squashing and meet spectre, setting PC "
+        "to: %s.\n", tid, *pc[tid]);
+    }
     fetchOffset[tid] = 0;
     if (squashInst && squashInst->pcState().instAddr() == new_pc.instAddr())
         macroop[tid] = squashInst->macroop;
@@ -1237,6 +1258,8 @@ Fetch::fetch(bool &status_change)
         // Extract as many instructions and/or microops as we can from
         // the memory we've processed so far.
         do {
+            DPRINTF(Spectre, "Debug Spectre, branchThreat[%u] is %d with PC "
+            "= %s\n", tid, branchThreat[tid], this_pc);
             if (!(curMacroop || inRom)) {
                 if (dec_ptr->instReady()) {
                     staticInst = dec_ptr->decode(this_pc);
@@ -1269,6 +1292,27 @@ Fetch::fetch(bool &status_change)
                 newMacro |= staticInst->isLastMicroop();
             }
 
+            if (scheme != Scheme::DEFAULT && branchThreat[tid] &&
+                staticInst->isLoad()) {
+                DPRINTF(Spectre, "Load detected, insert LFENCE and set flag = "
+                "false with PC = %s, next PC = %s\n", this_pc, *next_pc);
+                branchThreat[tid] = false;
+                if (scheme == Scheme::LFENCE)
+                    staticInst = LFencePtr;
+                else
+                    staticInst = LSQFencePtr;
+                std::unique_ptr<PCStateBase> tmp_pc(this_pc.clone());
+                tmp_pc->uSet();
+                DynInstPtr instruction = buildInst(
+                    tid, staticInst, curMacroop, *tmp_pc, *tmp_pc, true);
+                ++fetchStats.fenceNum;
+                ppFetch->notify(instruction);
+                numInst++;
+                lookupAndUpdateNextPC(instruction, *tmp_pc);
+                // tmp_pc->uReset();
+                continue;
+            }
+
             DynInstPtr instruction = buildInst(
                     tid, staticInst, curMacroop, this_pc, *next_pc, true);
 
@@ -1283,6 +1327,12 @@ Fetch::fetch(bool &status_change)
 
             set(next_pc, this_pc);
 
+            if (scheme != Scheme::DEFAULT && !branchThreat[tid] &&
+                instruction->isControl()) {
+                DPRINTF(Spectre, "Branch detected and set flag = true with "
+                        "PC = %s\n", this_pc);
+                branchThreat[tid] = true;
+            }
             // If we're branching after this instruction, quit fetching
             // from the same block.
             predictedBranch |= this_pc.branching();

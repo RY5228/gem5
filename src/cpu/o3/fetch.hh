@@ -527,6 +527,16 @@ class Fetch
     /** Event used to delay fault generation of translation faults */
     FinishTranslationEvent finishTranslationEvent;
 
+    /** [Yi] Set to true if we meet a branch and hadn't insert a fence. */
+    bool branchThreat[MaxThreads];
+
+    enum Scheme
+    {
+      DEFAULT,
+      LFENCE,
+      LSQFENCE
+    } scheme;
+
   protected:
     struct FetchStatGroup : public statistics::Group
     {
@@ -585,6 +595,8 @@ class Fetch
         statistics::Formula branchRate;
         /** Number of instruction fetched per cycle. */
         statistics::Formula rate;
+        /** [Yi] Number of fence added by fetch.*/
+        statistics::Scalar fenceNum;
     } fetchStats;
 };
 

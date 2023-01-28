@@ -194,6 +194,10 @@ class StaticInst : public RefCounted, public StaticInstFlags
     bool isHtmStop() const { return flags[IsHtmStop]; }
     bool isHtmCancel() const { return flags[IsHtmCancel]; }
 
+    // [Yi] flags for Spectre
+    bool isLfence() const { return flags[IsLfence]; }
+    bool isCfence() const { return flags[IsCfence]; }
+
     bool
     isHtmCmd() const
     {

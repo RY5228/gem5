@@ -63,6 +63,7 @@
 #include "debug/ExecFaulting.hh"
 #include "debug/HtmCpu.hh"
 #include "debug/O3PipeView.hh"
+#include "debug/Spectre.hh"
 #include "params/BaseO3CPU.hh"
 #include "sim/faults.hh"
 #include "sim/full_system.hh"
@@ -1162,7 +1163,15 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
                 "at the head of the ROB, PC %s.\n",
                 tid, head_inst->seqNum, head_inst->pcState());
 
-        if (inst_num > 0 || iewStage->hasStoresToWB(tid)) {
+        // [Yi]
+        if (head_inst->isLfence()) {
+            DPRINTF(Commit, "Encountered a lfence [tid:%i] [sn:%llu] at"
+            " the head of the ROB, PC %s.\n", tid, head_inst->seqNum,
+            head_inst->pcState());
+        }
+
+        if ((inst_num > 0 || iewStage->hasStoresToWB(tid)) &&
+            !head_inst->isLfence()) {
             DPRINTF(Commit,
                     "[tid:%i] [sn:%llu] "
                     "Waiting for all stores to writeback.\n",

@@ -87,4 +87,7 @@ class StaticInstFlags(Enum):
         "IsHtmStart",  # Starts a HTM transaction
         "IsHtmStop",  # Stops (commits) a HTM transaction
         "IsHtmCancel",  # Explicitely aborts a HTM transaction
+        # [Yi] Flags for Spectre
+        "IsLfence",  # Is a lfence
+        "IsCfence",  # Is a cfence
     ]

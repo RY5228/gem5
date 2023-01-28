@@ -37,6 +37,23 @@ from m5 import fatal
 import m5.objects
 
 
+# [Yi] add knob to configure the CPU modes/simulation schemes
+def config_scheme(cpu_cls, cpu_list, args):
+    if issubclass(cpu_cls, m5.objects.DerivO3CPU):
+        # Assign the same file name to all cpus for now.
+        if args.scheme is None:
+            fatal("Need to provide scheme to run simulation with DerivO3CPU")
+
+        print("**********")
+        print(f"info: Configure for DerivO3CPU. scheme={args.scheme}")
+        print("**********")
+        for cpu in cpu_list:
+            if args.scheme:
+                cpu.simulateScheme = args.scheme
+    else:
+        print("not DerivO3CPU")
+
+
 def config_etrace(cpu_cls, cpu_list, options):
     if issubclass(cpu_cls, m5.objects.DerivO3CPU):
         # Assign the same file name to all cpus for now. This must be

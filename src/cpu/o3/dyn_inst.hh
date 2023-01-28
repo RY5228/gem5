@@ -63,6 +63,7 @@
 #include "cpu/static_inst.hh"
 #include "cpu/translation.hh"
 #include "debug/HtmCpu.hh"
+#include "debug/LFENCE.hh"
 
 namespace gem5
 {
@@ -529,6 +530,8 @@ class DynInst : public ExecContext, public RefCounted
     {
         std::unique_ptr<PCStateBase> next_pc(pc->clone());
         staticInst->advancePC(*next_pc);
+        DPRINTF(LFENCE, "Check mispredicted LFENCE: pc: %s next_pc: "
+        "%s pred_pc: %s\n", *pc, *next_pc, *predPC);
         return *next_pc != *predPC;
     }
 
@@ -583,6 +586,10 @@ class DynInst : public ExecContext, public RefCounted
     bool isHtmStop() const { return staticInst->isHtmStop(); }
     bool isHtmCancel() const { return staticInst->isHtmCancel(); }
     bool isHtmCmd() const { return staticInst->isHtmCmd(); }
+
+    // [Yi] Flags for Spectre
+    bool isLfence() const { return staticInst->isLfence(); }
+    bool isCfence() const { return staticInst->isCfence(); }
 
     uint64_t
     getHtmTransactionUid() const override

@@ -197,3 +197,8 @@ class BaseO3CPU(BaseCPU):
         TournamentBP(numThreads=Parent.numThreads), "Branch Predictor"
     )
     needsTSO = Param.Bool(False, "Enable TSO Memory model")
+
+    # [Yi] add configuration variables
+    simulateScheme = Param.String(
+        "UnsafeBaseline", "The scheme specificed for simulation"
+    )

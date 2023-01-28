@@ -126,6 +126,12 @@ class PCStateBase : public Serializable
         _upc = 0;
     }
 
+    virtual void
+    uSet()
+    {
+        _upc = -1;
+    }
+
     virtual void advance() = 0;
     virtual bool branching() const = 0;
 
@@ -278,6 +284,13 @@ class PCStateWithNext : public PCStateBase
     {
         PCStateBase::uReset();
         _nupc = 1;
+    }
+
+    void
+    uSet() override
+    {
+        PCStateBase::uSet();
+        _nupc = 0;
     }
 
     void
