@@ -32,4 +32,9 @@ configs/example/memcheck.cfg
 configs/dram/lowp_sweep.cfg
 .pyenv
 .vscode
-/output
+output
+results
+scripts
+checkpoints
+disk-image
+kernel

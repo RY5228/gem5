@@ -7,7 +7,7 @@ from m5.objects import *
 # out_dir = '<FULL_PATH_TO_DESIRED_OUTPUT_DIRECTORY>'
 
 # x86_suffix = '_base.x86_64'
-x86_suffix = "_base.amd64-m64-gcc42-nn"
+x86_suffix = "_base.amd64"
 #'_base.my-alpha'
 
 # temp
