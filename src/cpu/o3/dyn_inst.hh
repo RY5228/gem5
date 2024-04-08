@@ -50,6 +50,7 @@
 
 #include "base/refcnt.hh"
 #include "base/trace.hh"
+#include "config/the_isa.hh"
 #include "cpu/checker/cpu.hh"
 #include "cpu/exec_context.hh"
 #include "cpu/exetrace.hh"
@@ -484,6 +485,9 @@ class DynInst : public ExecContext, public RefCounted
 
     /** Dumps out contents of this BaseDynInst into given string. */
     void dump(std::string &outstring);
+
+    /** Dumps out DEG information */
+    void dump_timestamp() const noexcept;
 
     /** Read this CPU's ID. */
     int cpuId() const { return cpu->cpuId(); }
@@ -1156,6 +1160,75 @@ class DynInst : public ExecContext, public RefCounted
         cpu->setReg(reg, val, threadNumber);
         setResult(reg->regClass(), val);
     }
+
+  public:
+    // various timestamps for DEG construction
+    typedef struct Timestamp
+    {
+        Tick tick;
+        Timestamp(): tick(0) {}
+        void set_timestamp() { tick = curTick(); }
+        void set_timestamp(Tick _tick) { tick = _tick; }
+        Tick get_timestamp() const noexcept { return tick; }
+    } timestamp;
+
+    struct MetaInfo
+    {
+        timestamp fetch_cache_line;
+        timestamp process_cache_completion;
+        timestamp decode_insts;
+        timestamp rename_sort_insts;
+        timestamp dispatch_insts;
+        timestamp schedule_ready_insts;
+        timestamp update_exe_inst_stats;
+        timestamp commit_head;
+        timestamp memory;
+        timestamp commit;
+        timestamp fetch;
+        timestamp rename;
+        timestamp block_from_rob;
+        timestamp block_from_rf;
+        timestamp block_from_iq;
+        timestamp block_from_lq;
+        timestamp block_from_sq;
+        timestamp decode_sort_insts;
+        timestamp complete_data_access;
+        timestamp add_if_ready;
+        int rob;
+        int lq;
+        int sq;
+        int iq;
+        int fu;
+    };
+
+    struct MetaInfo meta_info =
+    {
+        .fetch_cache_line = timestamp(),
+        .process_cache_completion = timestamp(),
+        .decode_insts = timestamp(),
+        .rename_sort_insts = timestamp(),
+        .dispatch_insts = timestamp(),
+        .schedule_ready_insts = timestamp(),
+        .update_exe_inst_stats = timestamp(),
+        .commit_head = timestamp(),
+        .memory = timestamp(),
+        .commit = timestamp(),
+        .fetch = timestamp(),
+        .rename = timestamp(),
+        .block_from_rob = timestamp(),
+        .block_from_rf = timestamp(),
+        .block_from_iq = timestamp(),
+        .block_from_lq = timestamp(),
+        .block_from_sq = timestamp(),
+        .decode_sort_insts = timestamp(),
+        .complete_data_access = timestamp(),
+        .add_if_ready = timestamp(),
+        .rob = -1,
+        .lq = -1,
+        .sq = -1,
+        .iq = -1,
+        .fu = -1
+    };
 };
 
 } // namespace o3

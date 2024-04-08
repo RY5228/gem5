@@ -1214,6 +1214,9 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
         DPRINTF(Commit,
             "[tid:%i] [sn:%llu] Committing instruction with fault\n",
             tid, head_inst->seqNum);
+
+        head_inst->meta_info.commit_head.set_timestamp();
+
         if (head_inst->traceData) {
             // We ignore ReExecution "faults" here as they are not real
             // (architectural) faults but signal flush/replays.
@@ -1239,6 +1242,9 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
     DPRINTF(Commit,
             "[tid:%i] [sn:%llu] Committing instruction with PC %s\n",
             tid, head_inst->seqNum, head_inst->pcState());
+
+    head_inst->meta_info.commit_head.set_timestamp();
+
     if (head_inst->traceData) {
         head_inst->traceData->setFetchSeq(head_inst->seqNum);
         head_inst->traceData->setCPSeq(thread[tid]->numOp);

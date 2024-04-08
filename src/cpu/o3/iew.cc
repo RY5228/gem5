@@ -1053,6 +1053,7 @@ IEW::dispatchInsts(ThreadID tid)
 #if TRACING_ON
         inst->dispatchTick = curTick() - inst->fetchTick;
 #endif
+        inst->meta_info.dispatch_insts.set_timestamp();
         ppDispatch->notify(inst);
     }
 
@@ -1530,6 +1531,7 @@ IEW::updateExeInstStats(const DynInstPtr& inst)
         inst->completeTick = curTick() - inst->fetchTick;
     }
 #endif
+    inst->meta_info.update_exe_inst_stats.set_timestamp();
 
     //
     //  Control operations

@@ -41,9 +41,14 @@
 #include "cpu/o3/dyn_inst.hh"
 
 #include <algorithm>
+#include <iomanip>
 
 #include "base/intmath.hh"
+#include "debug/DEG.hh"
+#include "debug/Debug.hh"
 #include "debug/DynInst.hh"
+#include "debug/ExecAll.hh"
+#include "debug/FmtTicksOff.hh"
 #include "debug/IQ.hh"
 #include "debug/O3PipeView.hh"
 
@@ -301,6 +306,174 @@ DynInst::dump(std::string &outstring)
     outstring = s.str();
 }
 
+
+void
+DynInst::dump_timestamp() const noexcept {
+    std::stringstream outs;
+    const bool in_user_mode = traceData->thread->getIsaPtr()->inUserMode();
+    if (in_user_mode && !debug::ExecUser)
+        return;
+    if (!in_user_mode && !debug::ExecKernel)
+        return;
+
+    if (debug::ExecAsid) {
+        outs << "A" << std::dec <<
+            traceData->thread->getIsaPtr()->getExecutingAsid() << " ";
+    }
+
+    if (debug::ExecThread)
+        outs << "T" << traceData->thread->threadId() << " : ";
+
+    Addr cur_pc = pc->instAddr();
+    loader::SymbolTable::const_iterator it;
+    ccprintf(outs, "%#x", cur_pc);
+    if (debug::ExecSymbol && (!FullSystem || !in_user_mode) &&
+            (it = loader::debugSymbolTable.findNearest(cur_pc)) !=
+                loader::debugSymbolTable.end()) {
+        Addr delta = cur_pc - it->address;
+        if (delta)
+            ccprintf(outs, " @%s+%d", it->name, delta);
+        else
+            ccprintf(outs, " @%s", it->name);
+    }
+
+    if (staticInst->isMicroop()) {
+        ccprintf(outs, ".%2d", pc->microPC());
+    } else {
+        ccprintf(outs, "   ");
+    }
+
+    ccprintf(outs, " : ");
+
+    //
+    //  Print decoded instruction
+    //
+
+    outs << std::setw(26) << std::left;
+    outs << staticInst->disassemble(cur_pc, &loader::debugSymbolTable);
+
+    outs << " : ";
+
+    if (debug::ExecOpClass) {
+        outs << enums::OpClassStrings[staticInst->opClass()] << " : ";
+    }
+
+    if (debug::ExecResult && !traceData->predicate) {
+        outs << "Predicated False";
+    }
+
+    if (debug::ExecResult && \
+        traceData->data_status != traceData->DataStatus::DataInvalid
+    ) {
+        if (
+            traceData->data_status == \
+            traceData->DataStatus::DataVec
+        ) {
+            ccprintf(outs, " D=%s", *(traceData->data).as_vec);
+        } else if (
+            traceData->data_status == \
+            traceData->DataStatus::DataVecPred
+        ) {
+            ccprintf(outs, " D=%s", *(traceData->data).as_pred);
+        } else {
+            ccprintf(outs, " D=%#018x", traceData->data.as_int);
+        }
+    }
+
+    if (debug::ExecEffAddr && traceData->getMemValid())
+        outs << " A=0x" << std::hex << traceData->addr;
+
+    if (debug::ExecFetchSeq && traceData->fetch_seq_valid)
+        outs << "  FetchSeq=" << std::dec << traceData->fetch_seq;
+
+    if (debug::ExecCPSeq && traceData->cp_seq_valid)
+        outs << "  CPSeq=" << std::dec << traceData->cp_seq;
+
+    if (debug::ExecFlags) {
+        outs << "  flags=(";
+        staticInst->printFlags(outs, "|");
+        outs << ")";
+    }
+
+    if (debug::DEG) {
+        outs << " : FetchCacheLine=" << std::dec << \
+            meta_info.fetch_cache_line.get_timestamp();
+        outs << " : ProcessCacheCompletion=" << std::dec << \
+            meta_info.process_cache_completion.get_timestamp();
+        outs << " : Fetch=" << std::dec << \
+            meta_info.fetch.get_timestamp();
+        outs << " : DecodeSortInsts=" << std::dec << \
+            meta_info.decode_sort_insts.get_timestamp();
+        outs << " : Decode=" << std::dec << \
+            meta_info.decode_insts.get_timestamp();
+        outs << " : RenameSortInsts=" << std::dec << \
+            meta_info.rename_sort_insts.get_timestamp();
+        outs << " : BlockFromROB=" << std::dec << \
+            meta_info.block_from_rob.get_timestamp();
+        outs << " : BlockFromRF=" << std::dec << \
+            meta_info.block_from_rf.get_timestamp();
+        outs << " : BlockFromIQ=" << std::dec << \
+            meta_info.block_from_iq.get_timestamp();
+        outs << " : BlockFromLQ=" << std::dec << \
+            meta_info.block_from_lq.get_timestamp();
+        outs << " : BlockFromSQ=" << std::dec << \
+            meta_info.block_from_sq.get_timestamp();
+        outs << " : Rename=" << std::dec << \
+            meta_info.rename.get_timestamp();
+        outs << " : Dispatch=" << std::dec << \
+            meta_info.dispatch_insts.get_timestamp();
+        outs << " : InsertReadyList=" << std::dec << \
+            meta_info.add_if_ready.get_timestamp();
+        outs << " : Issue=" << std::dec << \
+            meta_info.schedule_ready_insts.get_timestamp();
+        outs << " : Memory=" << std::dec << \
+            meta_info.memory.get_timestamp();
+        outs << " : Complete=" << std::dec << \
+            meta_info.update_exe_inst_stats.get_timestamp();
+        outs << " : CompleteMemory=" << std::dec << \
+            meta_info.complete_data_access.get_timestamp();
+        outs << " : CommitHead=" << std::dec << \
+            meta_info.commit_head.get_timestamp();
+        outs << " : Commit=" << std::dec << \
+            meta_info.commit.get_timestamp();
+        outs << " : ROB=" << std::dec << \
+            meta_info.rob;
+        outs << " : LQ=" << std::dec << \
+            meta_info.lq;
+        outs << " : SQ=" << std::dec << \
+            meta_info.sq;
+        outs << " : IQ=" << std::dec << \
+            meta_info.iq;
+        outs << " : FU=" << std::dec << \
+            meta_info.fu;
+        outs << " : SRC=";
+        for (int i = 0; i < numSrcs(); i++) {
+            outs << _srcIdx[i]->flatIndex();
+            if (i < numSrcs() - 1)
+                outs << ",";
+        }
+        outs << " : DST=";
+        for (int i = 0; i < numDests(); i++) {
+            outs << _destIdx[i]->flatIndex();
+            if (i < numDests() - 1)
+                outs << ",";
+        }
+    }
+
+    //
+    //  End of line...
+    //
+    outs << std::endl;
+
+    Trace::getDebugLogger()->dprintf_flag(
+        traceData->when,
+        traceData->thread->getCpuPtr()->name(),
+        "ExecEnable",
+        "%s",
+        outs.str().c_str()
+    );
+}
+
 void
 DynInst::markSrcRegReady()
 {
@@ -412,6 +585,9 @@ DynInst::initiateMemRead(Addr addr, unsigned size, Request::Flags flags,
                                const std::vector<bool> &byte_enable)
 {
     assert(byte_enable.size() == size);
+
+    this->meta_info.memory.set_timestamp();
+
     return cpu->pushRequest(
         dynamic_cast<DynInstPtr::PtrType>(this),
         /* ld */ true, nullptr, size, addr, flags, nullptr, nullptr,
@@ -434,6 +610,9 @@ DynInst::writeMem(uint8_t *data, unsigned size, Addr addr,
                         const std::vector<bool> &byte_enable)
 {
     assert(byte_enable.size() == size);
+
+    this->meta_info.memory.set_timestamp();
+
     return cpu->pushRequest(
         dynamic_cast<DynInstPtr::PtrType>(this),
         /* st */ false, data, size, addr, flags, res, nullptr,

@@ -467,6 +467,7 @@ Decode::sortInsts()
     int insts_from_fetch = fromFetch->size;
     for (int i = 0; i < insts_from_fetch; ++i) {
         insts[fromFetch->insts[i]->threadNumber].push(fromFetch->insts[i]);
+        fromFetch->insts[i]->meta_info.decode_sort_insts.set_timestamp();
     }
 }
 
@@ -691,6 +692,7 @@ Decode::decodeInsts(ThreadID tid)
             inst->decodeTick = curTick() - inst->fetchTick;
         }
 #endif
+        inst->meta_info.decode_insts.set_timestamp();
 
         // Ensure that if it was predicted as a branch, it really is a
         // branch.

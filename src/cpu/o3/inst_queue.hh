@@ -561,6 +561,8 @@ class InstructionQueue
         statistics::Scalar fpAluAccesses;
         statistics::Scalar vecAluAccesses;
     } iqIOStats;
+
+    std::list<int> iq_idx;
 };
 
 } // namespace o3

@@ -359,6 +359,9 @@ class Fetch
 
     RequestPort &getInstPort() { return icachePort; }
 
+    /** set the icache access timestamp */
+    void setTimeStamp(DynInstPtr&);
+
   private:
     DynInstPtr buildInst(ThreadID tid, StaticInstPtr staticInst,
             StaticInstPtr curMacroop, const PCStateBase &this_pc,

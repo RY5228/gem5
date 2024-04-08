@@ -115,6 +115,8 @@ ROB::resetState()
     // pointers
     head = instList[0].end();
     tail = instList[0].end();
+
+    rob_idx = 0;
 }
 
 std::string
@@ -225,6 +227,9 @@ ROB::insertInst(const DynInstPtr &inst)
     ++threadEntries[tid];
 
     assert((*tail) == inst);
+
+    inst->meta_info.rob = rob_idx % numEntries;
+    ++rob_idx;
 
     DPRINTF(ROB, "[tid:%i] Now has %d instructions.\n", tid,
             threadEntries[tid]);
@@ -353,6 +358,7 @@ ROB::doSquash(ThreadID tid)
 
         (*squashIt[tid])->setCanCommit();
 
+        rob_idx--;
 
         if (squashIt[tid] == instList[tid].begin()) {
             DPRINTF(ROB, "Reached head of instruction list while "

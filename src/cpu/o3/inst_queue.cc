@@ -427,6 +427,10 @@ InstructionQueue::resetState()
     blockedMemInsts.clear();
     retryMemInsts.clear();
     wbOutstanding = 0;
+
+    iq_idx.resize(numEntries);
+    for (auto i = 0; i < numEntries; i++)
+        iq_idx.emplace_back(i);
 }
 
 void
@@ -583,6 +587,9 @@ InstructionQueue::insert(const DynInstPtr &new_inst)
 
     new_inst->setInIQ();
 
+    new_inst->meta_info.iq = iq_idx.front();
+    iq_idx.erase(iq_idx.begin());
+
     // Look through its source registers (physical regs), and mark any
     // dependencies.
     addToDependents(new_inst);
@@ -632,6 +639,9 @@ InstructionQueue::insertNonSpec(const DynInstPtr &new_inst)
     --freeEntries;
 
     new_inst->setInIQ();
+
+    new_inst->meta_info.iq = iq_idx.front();
+    iq_idx.erase(iq_idx.begin());
 
     // Have this instruction set itself as the producer of its destination
     // register(s).
@@ -827,6 +837,7 @@ InstructionQueue::scheduleReadyInsts()
             }
             if (idx > FUPool::NoFreeFU) {
                 op_latency = fuPool->getOpLatency(op_class);
+                issuing_inst->meta_info.fu = idx;
             }
         }
 
@@ -881,6 +892,7 @@ InstructionQueue::scheduleReadyInsts()
 #if TRACING_ON
             issuing_inst->issueTick = curTick() - issuing_inst->fetchTick;
 #endif
+            issuing_inst->meta_info.schedule_ready_insts.set_timestamp();
 
             if (issuing_inst->firstIssue == -1)
                 issuing_inst->firstIssue = curTick();
@@ -891,6 +903,7 @@ InstructionQueue::scheduleReadyInsts()
                 ++freeEntries;
                 count[tid]--;
                 issuing_inst->clearInIQ();
+                iq_idx.emplace_back(issuing_inst->meta_info.iq);
             } else {
                 memDepUnit[tid].issue(issuing_inst);
             }
@@ -956,6 +969,13 @@ InstructionQueue::commit(const InstSeqNum &inst, ThreadID tid)
     while (iq_it != instList[tid].end() &&
            (*iq_it)->seqNum <= inst) {
         ++iq_it;
+        auto _inst = instList[tid].front();
+        _inst->meta_info.commit.set_timestamp();
+        if (_inst->traceData) {
+            _inst->dump_timestamp();
+            delete _inst->traceData;
+            _inst->traceData = NULL;
+        }
         instList[tid].pop_front();
     }
 
@@ -995,6 +1015,7 @@ InstructionQueue::wakeDependents(const DynInstPtr &completed_inst)
         ++freeEntries;
         completed_inst->memOpDone(true);
         count[tid]--;
+        iq_idx.emplace_back(completed_inst->meta_info.iq);
     } else if (completed_inst->isReadBarrier() ||
                completed_inst->isWriteBarrier()) {
         // Completes a non mem ref barrier
@@ -1069,6 +1090,8 @@ InstructionQueue::addReadyMemInst(const DynInstPtr &ready_inst)
     OpClass op_class = ready_inst->opClass();
 
     readyInsts[op_class].push(ready_inst);
+
+    ready_inst->meta_info.add_if_ready.set_timestamp();
 
     // Will need to reorder the list if either a queue is not on the list,
     // or it has an older instruction than last time.
@@ -1297,6 +1320,7 @@ InstructionQueue::doSquash(ThreadID tid)
             count[squashed_inst->threadNumber]--;
 
             ++freeEntries;
+            iq_idx.emplace_back(squashed_inst->meta_info.iq);
         }
 
         // IQ clears out the heads of the dependency graph only when
@@ -1438,6 +1462,8 @@ InstructionQueue::addIfReady(const DynInstPtr &inst)
                 inst->pcState(), op_class, inst->seqNum);
 
         readyInsts[op_class].push(inst);
+
+        inst->meta_info.add_if_ready.set_timestamp();
 
         // Will need to reorder the list if either a queue is not on the list,
         // or it has an older instruction than last time.

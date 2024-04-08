@@ -79,6 +79,7 @@ LSQUnit::WritebackEvent::process()
 
     assert(inst->savedRequest);
     inst->savedRequest->writebackDone();
+    inst->meta_info.complete_data_access.set_timestamp();
     delete pkt;
 }
 
@@ -161,6 +162,7 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
     }
 
     cpu->ppDataAccessComplete->notify(std::make_pair(inst, pkt));
+    inst->meta_info.complete_data_access.set_timestamp();
 
     assert(!cpu->switchedOut());
     if (!inst->isSquashed()) {
@@ -191,6 +193,7 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
 
 LSQUnit::LSQUnit(uint32_t lqEntries, uint32_t sqEntries)
     : lsqID(-1), storeQueue(sqEntries), loadQueue(lqEntries),
+      sqEntries(sqEntries), lqEntries(lqEntries),
       storesToWB(0),
       htmStarts(0), htmStops(0),
       lastRetiredHtmUid(0),
@@ -239,6 +242,13 @@ LSQUnit::resetState()
     stalled = false;
 
     cacheBlockMask = ~(cpu->cacheLineSize() - 1);
+
+    st_idx.resize(sqEntries);
+    for (auto i = 0; i < sqEntries; i++)
+        st_idx.emplace_back(i);
+    ld_idx.resize(lqEntries);
+    for (auto i = 0; i < lqEntries; i++)
+        ld_idx.emplace_back(i);
 }
 
 std::string
@@ -335,6 +345,9 @@ LSQUnit::insertLoad(const DynInstPtr &load_inst)
     assert(load_inst->lqIdx > 0);
     load_inst->lqIt = loadQueue.getIterator(load_inst->lqIdx);
 
+    load_inst->meta_info.lq = ld_idx.front();
+    ld_idx.erase(ld_idx.begin());
+
     // hardware transactional memory
     // transactional state and nesting depth must be tracked
     // in the in-order part of the core.
@@ -394,6 +407,9 @@ LSQUnit::insertStore(const DynInstPtr& store_inst)
     store_inst->lqIt = loadQueue.end();
 
     storeQueue.back().set(store_inst);
+
+    store_inst->meta_info.sq = st_idx.front();
+    st_idx.erase(st_idx.begin());
 }
 
 DynInstPtr
@@ -736,6 +752,7 @@ LSQUnit::commitLoad()
 
     loadQueue.front().clear();
     loadQueue.pop_front();
+    ld_idx.emplace_back(inst->meta_info.lq);
 }
 
 void
@@ -958,6 +975,7 @@ LSQUnit::squash(const InstSeqNum &squashed_num)
 
         loadQueue.pop_back();
         ++stats.squashedLoads;
+        ld_idx.emplace_back();
     }
 
     // hardware transactional memory
@@ -1021,6 +1039,7 @@ LSQUnit::squash(const InstSeqNum &squashed_num)
 
         // Clear the smart pointer to make sure it is decremented.
         storeQueue.back().instruction()->setSquashed();
+        st_idx.emplace_back(storeQueue.back().instruction()->meta_info.sq);
 
         // Must delete request now that it wasn't handed off to
         // memory.  This is quite ugly.  @todo: Figure out the proper
@@ -1149,6 +1168,9 @@ LSQUnit::completeStore(typename StoreQueue::iterator store_idx)
     DynInstPtr store_inst = store_idx->instruction();
     if (store_idx == storeQueue.begin()) {
         do {
+            st_idx.emplace_back(
+                storeQueue.front().instruction()->meta_info.sq
+            );
             storeQueue.front().clear();
             storeQueue.pop_front();
         } while (storeQueue.front().completed() &&

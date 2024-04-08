@@ -451,6 +451,11 @@ class LSQUnit
     /** The load queue. */
     LoadQueue loadQueue;
 
+    /** the load/store id */
+    std::list<int> st_idx;
+    std::list<int> ld_idx;
+    size_t sqEntries;
+    size_t lqEntries;
   private:
     /** The number of places to shift addresses in the LSQ before checking
      * for dependency violations

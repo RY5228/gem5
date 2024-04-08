@@ -725,6 +725,8 @@ Rename::renameInsts(ThreadID tid)
         // this instruction have been renamed.
         ppRename->notify(inst);
 
+        inst->meta_info.rename.set_timestamp();
+
         // Put instruction in rename queue.
         toIEW->insts[toIEWIndex] = inst;
         ++(toIEW->size);
@@ -801,6 +803,7 @@ Rename::sortInsts()
             inst->renameTick = curTick() - inst->fetchTick;
         }
 #endif
+        inst->meta_info.rename_sort_insts.set_timestamp();
     }
 }
 
@@ -866,6 +869,65 @@ Rename::block(ThreadID tid)
     // Add the current inputs onto the skid buffer, so they can be
     // reprocessed when this stage unblocks.
     skidInsert(tid);
+
+    // record the block timestamp
+    if (calcFreeROBEntries(tid) <= 0) {
+        // for insufficient ROB
+        std::for_each(
+            skidBuffer[tid].begin(), skidBuffer[tid].end(), [](auto inst) {
+                if (inst->meta_info.block_from_rob.get_timestamp() == 0 && \
+                    inst->meta_info.rename.get_timestamp() == 0
+                )
+                    inst->meta_info.block_from_rob.set_timestamp();
+            }
+        );
+    } else if (calcFreeIQEntries(tid) <= 0) {
+        // for insufficient IQ
+        std::for_each(
+            skidBuffer[tid].begin(), skidBuffer[tid].end(), [](auto inst) {
+                if (inst->meta_info.block_from_iq.get_timestamp() == 0 && \
+                    inst->meta_info.rename.get_timestamp() == 0
+                )
+                    inst->meta_info.block_from_iq.set_timestamp();
+            }
+        );
+    } else if (calcFreeLQEntries(tid) <= 0 || calcFreeSQEntries(tid) <= 0) {
+        if (calcFreeLQEntries(tid) <= 0) {
+            // for insufficient LQ
+            std::for_each(
+                skidBuffer[tid].begin(), skidBuffer[tid].end(), [](auto inst) {
+                    if (inst->meta_info.block_from_lq.get_timestamp() == 0 && \
+                        inst->meta_info.rename.get_timestamp() == 0
+                    )
+                        inst->meta_info.block_from_lq.set_timestamp();
+                }
+            );
+        }
+        if (calcFreeSQEntries(tid) <= 0) {
+            // for insufficient SQ
+            std::for_each(
+                skidBuffer[tid].begin(), skidBuffer[tid].end(), [](auto inst) {
+                    if (inst->meta_info.block_from_sq.get_timestamp() == 0 && \
+                        inst->meta_info.rename.get_timestamp() == 0
+                    )
+                        inst->meta_info.block_from_sq.set_timestamp();
+                }
+            );
+        }
+    } else if (
+        skidBuffer[tid].size() > 0 && \
+        !renameMap[tid]->canRename(*skidBuffer[tid].begin())
+    ) {
+        // for insufficient physical RFs
+        std::for_each(
+            skidBuffer[tid].begin(), skidBuffer[tid].end(), [](auto inst) {
+                if (inst->meta_info.block_from_rf.get_timestamp() == 0 && \
+                    inst->meta_info.rename.get_timestamp() == 0
+                )
+                    inst->meta_info.block_from_rf.set_timestamp();
+            }
+        );
+    }
 
     // Only signal backwards to block if the previous stages do not think
     // rename is already blocked.

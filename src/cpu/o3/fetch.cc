@@ -1597,5 +1597,14 @@ Fetch::IcachePort::recvReqRetry()
     fetch->recvReqRetry();
 }
 
+void
+Fetch::setTimeStamp(DynInstPtr& instruction) {
+    instruction->meta_info.fetch_cache_line.set_timestamp(fetch_cache_line);
+    instruction->meta_info.process_cache_completion.set_timestamp(
+        process_cache_completion
+    );
+    instruction->meta_info.fetch.set_timestamp();
+}
+
 } // namespace o3
 } // namespace gem5
