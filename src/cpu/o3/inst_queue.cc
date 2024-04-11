@@ -785,6 +785,8 @@ InstructionQueue::scheduleReadyInsts()
     // This will avoid trying to schedule a certain op class if there are no
     // FUs that handle it.
     int total_issued = 0;
+    int int_insts_issued = 0;
+    int float_insts_issued = 0;
     ListOrderIt order_it = listOrder.begin();
     ListOrderIt order_end_it = listOrder.end();
 
@@ -888,6 +890,12 @@ InstructionQueue::scheduleReadyInsts()
 
             issuing_inst->setIssued();
             ++total_issued;
+            if (issuing_inst->isInteger()) {
+                ++int_insts_issued;
+            }
+            if (issuing_inst->isFloating()) {
+                ++float_insts_issued;
+            }
 
 #if TRACING_ON
             issuing_inst->issueTick = curTick() - issuing_inst->fetchTick;
@@ -919,6 +927,8 @@ InstructionQueue::scheduleReadyInsts()
 
     iqStats.numIssuedDist.sample(total_issued);
     iqStats.instsIssued+= total_issued;
+    iqStats.intInstsIssued += int_insts_issued;
+    iqStats.floatInstsIssued += float_insts_issued;
 
     // If we issued any instructions, tell the CPU we had activity.
     // @todo If the way deferred memory instructions are handeled due to
