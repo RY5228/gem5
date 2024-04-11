@@ -1226,7 +1226,7 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
                 head_inst->traceData->setFaulting(true);
                 head_inst->traceData->setFetchSeq(head_inst->seqNum);
                 head_inst->traceData->setCPSeq(thread[tid]->numOp);
-                head_inst->traceData->dump();
+                // head_inst->traceData->dump();
             }
             delete head_inst->traceData;
             head_inst->traceData = NULL;
@@ -1248,9 +1248,9 @@ Commit::commitHead(const DynInstPtr &head_inst, unsigned inst_num)
     if (head_inst->traceData) {
         head_inst->traceData->setFetchSeq(head_inst->seqNum);
         head_inst->traceData->setCPSeq(thread[tid]->numOp);
-        head_inst->traceData->dump();
-        delete head_inst->traceData;
-        head_inst->traceData = NULL;
+        // head_inst->traceData->dump();
+        // delete head_inst->traceData;
+        // head_inst->traceData = NULL;
     }
     if (head_inst->isReturn()) {
         DPRINTF(Commit,

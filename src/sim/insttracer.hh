@@ -60,7 +60,7 @@ namespace trace {
 
 class InstRecord
 {
-  protected:
+  public:
     Tick when;
 
     // The following fields are initialized by the constructor and

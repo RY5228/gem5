@@ -62,6 +62,7 @@ DebugFlag('ExecUser', 'Filter: Trace user mode instructions')
 DebugFlag('ExecKernel', 'Filter: Trace kernel mode instructions')
 DebugFlag('ExecAsid', 'Format: Include ASID in trace')
 DebugFlag('ExecFlags', 'Format: Include instruction flags in trace')
+DebugFlag('DEG', 'Format: Include DEG trace')
 DebugFlag('Fetch')
 DebugFlag('HtmCpu', 'Hardware Transactional Memory (CPU side)')
 DebugFlag('InvalidReg')
@@ -77,7 +78,7 @@ CompoundFlag('ExecAll', [ 'ExecEnable', 'ExecCPSeq', 'ExecEffAddr',
     'ExecAsid', 'ExecFlags' ])
 CompoundFlag('Exec', [ 'ExecEnable', 'ExecOpClass', 'ExecThread',
     'ExecEffAddr', 'ExecResult', 'ExecSymbol', 'ExecMicro', 'ExecMacro',
-    'ExecFaulting', 'ExecUser', 'ExecKernel' ])
+    'ExecFaulting', 'ExecUser', 'ExecKernel', 'DEG' ])
 CompoundFlag('ExecNoTicks', [ 'Exec', 'FmtTicksOff' ])
 
 Source('func_unit.cc')

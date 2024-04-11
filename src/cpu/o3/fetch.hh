@@ -530,6 +530,10 @@ class Fetch
     /** Event used to delay fault generation of translation faults */
     FinishTranslationEvent finishTranslationEvent;
 
+    /** calculate the fetch latency for each instruction */
+    Tick fetch_cache_line;
+    Tick process_cache_completion;
+
   protected:
     struct FetchStatGroup : public statistics::Group
     {

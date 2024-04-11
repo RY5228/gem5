@@ -45,7 +45,6 @@
 
 #include "base/intmath.hh"
 #include "debug/DEG.hh"
-#include "debug/Debug.hh"
 #include "debug/DynInst.hh"
 #include "debug/ExecAll.hh"
 #include "debug/FmtTicksOff.hh"
@@ -330,11 +329,11 @@ DynInst::dump_timestamp() const noexcept {
     if (debug::ExecSymbol && (!FullSystem || !in_user_mode) &&
             (it = loader::debugSymbolTable.findNearest(cur_pc)) !=
                 loader::debugSymbolTable.end()) {
-        Addr delta = cur_pc - it->address;
+        Addr delta = cur_pc - it->address();
         if (delta)
-            ccprintf(outs, " @%s+%d", it->name, delta);
+            ccprintf(outs, " @%s+%d", it->name(), delta);
         else
-            ccprintf(outs, " @%s", it->name);
+            ccprintf(outs, " @%s", it->name());
     }
 
     if (staticInst->isMicroop()) {
@@ -362,22 +361,11 @@ DynInst::dump_timestamp() const noexcept {
         outs << "Predicated False";
     }
 
-    if (debug::ExecResult && \
-        traceData->data_status != traceData->DataStatus::DataInvalid
-    ) {
-        if (
-            traceData->data_status == \
-            traceData->DataStatus::DataVec
-        ) {
-            ccprintf(outs, " D=%s", *(traceData->data).as_vec);
-        } else if (
-            traceData->data_status == \
-            traceData->DataStatus::DataVecPred
-        ) {
-            ccprintf(outs, " D=%s", *(traceData->data).as_pred);
-        } else {
-            ccprintf(outs, " D=%#018x", traceData->data.as_int);
-        }
+    if (debug::ExecResult && traceData->dataStatus != traceData->DataStatus::DataInvalid) {
+        if (traceData->dataStatus == traceData->DataStatus::DataReg)
+            ccprintf(outs, " D=%s", traceData->data.asReg.asString());
+        else
+            ccprintf(outs, " D=%#018x", traceData->data.asInt);
     }
 
     if (debug::ExecEffAddr && traceData->getMemValid())
@@ -465,7 +453,7 @@ DynInst::dump_timestamp() const noexcept {
     //
     outs << std::endl;
 
-    Trace::getDebugLogger()->dprintf_flag(
+    trace::getDebugLogger()->dprintf_flag(
         traceData->when,
         traceData->thread->getCpuPtr()->name(),
         "ExecEnable",
