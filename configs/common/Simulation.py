@@ -53,6 +53,8 @@ from m5.util import *
 
 addToPath("../common")
 
+addToPath("../dse")
+from dse.configs import config_dse
 
 def getCPUClass(cpu_type):
     """Returns the required cpu class and the mode of operation."""
@@ -82,10 +84,10 @@ def setCPUClass(options):
     elif options.fast_forward:
         CPUClass = TmpClass
         CPUISA = ObjectList.cpu_list.get_isa(options.cpu_type)
-        TmpClass = getCPUClass(
+        TmpClass, test_mem_mode = getCPUClass(
             CpuConfig.isa_string_map[CPUISA] + "AtomicSimpleCPU"
         )
-        test_mem_mode = "atomic"
+        # test_mem_mode = "atomic"
 
     # Ruby only supports atomic accesses in noncaching mode
     if test_mem_mode == "atomic" and options.ruby:
@@ -551,6 +553,7 @@ def run(options, root, testsys, cpu_class):
         if options.elastic_trace_en:
             CpuConfig.config_etrace(cpu_class, switch_cpus, options)
 
+        config_dse(cpu_class, switch_cpus, options)
         testsys.switch_cpus = switch_cpus
         switch_cpu_list = [(testsys.cpu[i], switch_cpus[i]) for i in range(np)]
 
@@ -581,6 +584,7 @@ def run(options, root, testsys, cpu_class):
 
             repeat_switch_cpus[i].createThreads()
 
+        config_dse(switch_class, repeat_switch_cpus, options)
         testsys.repeat_switch_cpus = repeat_switch_cpus
 
         if cpu_class:
@@ -643,6 +647,7 @@ def run(options, root, testsys, cpu_class):
             switch_cpus[i].createThreads()
             switch_cpus_1[i].createThreads()
 
+        config_dse(DerivO3CPU, switch_cpus_1, options)
         testsys.switch_cpus = switch_cpus
         testsys.switch_cpus_1 = switch_cpus_1
         switch_cpu_list = [(testsys.cpu[i], switch_cpus[i]) for i in range(np)]
